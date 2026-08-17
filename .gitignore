@@ -31,3 +31,9 @@ pcsx2-build.log
 PCSX2-MCP.lnk
 package-release.ps1
 setup-mcp.bat
+
+# --- backup-fork-specific additions (gnaomo/pcsx2-mcp-server) ---
+# personal dev notes (contains local username/paths)
+ROADMAP.md
+# unverified screenshot content (may show local paths/window titles)
+pcsx2-mcp-server/debug_shot.png
