@@ -1,7 +1,21 @@
 /**
- * Pine IPC Client — PCSX2's built-in IPC protocol (TCP port 28011)
- * Can read/write memory, get game info, save/load states
- * Works with vanilla PCSX2 — no patches required
+ * Pine IPC Client — PCSX2's built-in IPC protocol
+ *
+ * IMPORTANT (Linux/macOS): vanilla PCSX2's Pine server listens on a
+ * Unix domain socket, NOT a TCP port. TCP is only used on Windows,
+ * because PCSX2 explicitly avoids AF_UNIX there (Windows' support for
+ * it is unreliable). See PCSX2/pcsx2/PINE.cpp:
+ *
+ *   #ifdef _WIN32
+ *     s_sock = socket(AF_INET, SOCK_STREAM, 0);   // TCP, port = 28011 + slot
+ *   #else
+ *     s_socket_name = $XDG_RUNTIME_DIR/pcsx2.sock (or /tmp/pcsx2.sock)
+ *                     + ".<slot>" if slot != 0
+ *     s_sock = socket(AF_UNIX, SOCK_STREAM, 0);   // Unix domain socket
+ *   #endif
+ *
+ * Can read/write memory, get game info, save/load states.
+ * Works with vanilla PCSX2 — no patches required.
  *
  * Protocol reference: PCSX2/pcsx2/PINE.cpp (ParseCommand)
  *
@@ -48,25 +62,68 @@ export enum EmuStatus { Running = 0, Paused = 1, Shutdown = 2 }
 export class PineClient {
   private host: string;
   private port: number;
+  // Set on Linux/macOS by default (or explicitly). When set, connect() uses
+  // a Unix domain socket instead of TCP.
+  private socketPath?: string;
   private socket: net.Socket | null = null;
   private connected = false;
 
-  // Command queue: Pine is sequential request/response over a single TCP socket.
+  // Command queue: Pine is sequential request/response over a single socket.
   // We MUST serialize commands to prevent response interleaving.
   private commandQueue: Promise<any> = Promise.resolve();
 
-  constructor(host = '127.0.0.1', port = 28011) {
+  /**
+   * @param host       TCP host (Windows only; ignored on Linux/macOS unless socketPath === '').
+   * @param port       TCP port (Windows only; ignored on Linux/macOS unless socketPath === '').
+   * @param socketPath Explicit Unix socket path override. Pass '' to force TCP even on Linux/macOS.
+   * @param slot       PCSX2 "slot" instance number (multi-instance uses pcsx2.sock.N). Default 0.
+   */
+  constructor(host = '127.0.0.1', port = 28011, socketPath?: string, slot = 0) {
     this.host = host;
     this.port = port;
+    if (socketPath === '') {
+      this.socketPath = undefined; // explicit opt-out: force TCP
+    } else if (socketPath) {
+      this.socketPath = socketPath;
+    } else if (process.platform !== 'win32') {
+      this.socketPath = PineClient.defaultSocketPath(slot);
+    }
+  }
+
+  /** Matches PCSX2's PINE.cpp: $XDG_RUNTIME_DIR/pcsx2.sock (or /tmp/pcsx2.sock if unset), ".N" suffix for slot != 0. */
+  static defaultSocketPath(slot = 0): string {
+    const dir = process.env.XDG_RUNTIME_DIR || '/tmp';
+    const base = `${dir}/pcsx2.sock`;
+    return slot ? `${base}.${slot}` : base;
+  }
+
+  /** Human-readable description of where we'll try to connect (for status/error messages). */
+  describeTarget(): string {
+    return this.socketPath ? `unix socket ${this.socketPath}` : `tcp ${this.host}:${this.port}`;
   }
 
   async connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.socket = new net.Socket();
-      this.socket.setNoDelay(true);  // disable Nagle for low-latency IPC
-      const timeout = setTimeout(() => { this.socket?.destroy(); reject(new Error('Pine timeout')); }, 3000);
-      this.socket.connect(this.port, this.host, () => { clearTimeout(timeout); this.connected = true; resolve(); });
-      this.socket.on('error', (e) => { clearTimeout(timeout); this.connected = false; reject(e); });
+      const timeout = setTimeout(() => {
+        this.socket?.destroy();
+        reject(new Error(`Pine timeout connecting to ${this.describeTarget()}`));
+      }, 3000);
+      const onConnect = () => { clearTimeout(timeout); this.connected = true; resolve(); };
+
+      if (this.socketPath) {
+        // Unix domain sockets have no Nagle's algorithm / TCP_NODELAY concept.
+        this.socket.connect(this.socketPath, onConnect);
+      } else {
+        this.socket.setNoDelay(true); // disable Nagle for low-latency TCP IPC
+        this.socket.connect(this.port, this.host, onConnect);
+      }
+
+      this.socket.on('error', (e) => {
+        clearTimeout(timeout);
+        this.connected = false;
+        reject(new Error(`Pine (${this.describeTarget()}): ${e.message}`));
+      });
       this.socket.on('close', () => { this.connected = false; });
     });
   }
@@ -105,7 +162,7 @@ export class PineClient {
         reject(new Error('Pine response timeout'));
       }, 5000);
 
-      // Accumulate data — response may arrive in multiple TCP segments
+      // Accumulate data — response may arrive in multiple segments
       let accumulated = Buffer.alloc(0);
       const handler = (data: Buffer) => {
         accumulated = Buffer.concat([accumulated, data]);
