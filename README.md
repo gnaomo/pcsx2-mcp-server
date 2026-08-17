@@ -63,7 +63,7 @@ Launch the freshly-built `pcsx2-fork/build/bin/pcsx2-qt`, load a game, restart y
 
 ## Tools
 
-62 MCP tools across these areas:
+63 MCP tools across these areas. All 58 tools outside the "Connection" row also accept an optional `instance_id` to target one instance directly, without switching the active one — see the multi-instance note above.
 
 | Area | Examples | Count |
 |---|---|---|
@@ -87,7 +87,7 @@ Full descriptions and parameters are in each tool's own docstring in `pcsx2-mcp-
 ### Known limitations
 - **VU breakpoints only fire under PCSX2's interpreter**, not the default microVU JIT recompiler — disable "Enable VU0/VU1 Recompiler" (System → Emulation) for whichever VU you're investigating if a breakpoint silently never hits.
 - **Watchpoints only see CPU load/store instructions** — DMAC transfers (VIF/GIF/SIF/IPU) bypass them entirely, which is most PS2 texture/VU-chain data movement.
-- **Multi-instance** is "select the active instance, then act" (`pcsx2_use_instance`), not per-call instance targeting — see `ROADMAP.md` (local, not included in this backup) for the fuller per-call design.
+- **Multi-instance**: every tool (except the 5 connection-management ones) takes an optional `instance_id` — pass it to target one specific instance for a single call without disturbing which instance is otherwise "active." Omit it and the call falls back to the active instance set via `pcsx2_use_instance`, exactly as before. `instance_id` accepts an exact id or a fuzzy match against a connected instance's id/game title/serial (e.g. `"ratchet"` or `"SCUS-97199"`).
 
 ---
 
