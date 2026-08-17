@@ -1,5 +1,5 @@
 [submodule "pcsx2-fork"]
 	path = pcsx2-fork
 	url = https://github.com/gnaomo/pcsx2.git
-	branch = backup/pcsx2-mcp-debugserver
+	branch = master
 	shallow = true

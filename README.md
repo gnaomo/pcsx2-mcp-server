@@ -2,7 +2,7 @@
 >
 > This is a personal backup/development fork of [hkmodd/PCSX2-MCP](https://github.com/hkmodd/PCSX2-MCP), restructured for a Linux workflow and extended with new tools (multi-instance support, VU microcode disassembly/breakpoints, symbol intelligence, memory search, GS state inspection, and more — see [Tools](#tools) below).
 >
-> The matching patched PCSX2 build lives in a linked submodule: **[gnaomo/pcsx2](https://github.com/gnaomo/pcsx2)**, branch `backup/pcsx2-mcp-debugserver`. Clone with `--recurse-submodules` to get both in sync — see [Quick Start](#quick-start).
+> The matching patched PCSX2 build lives in a linked submodule: **[gnaomo/pcsx2](https://github.com/gnaomo/pcsx2)**, branch `master`. Clone with `--recurse-submodules` to get both in sync — see [Quick Start](#quick-start).
 >
 > **⚠️ LLM disclosure:** everything beyond the original upstream project was written entirely by an LLM (AI coding assistant) and has **not been reviewed, audited, or verified by the repository owner**. Treat it as untrusted / unreviewed. This is a personal backup, not a maintained public project — please use upstream [hkmodd/PCSX2-MCP](https://github.com/hkmodd/PCSX2-MCP) if you want a supported release.
 
